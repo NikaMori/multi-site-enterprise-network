@@ -1,0 +1,242 @@
+!
+version 15.0
+service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname HQ-SRV-SW-01
+!
+!
+!
+ip ssh version 2
+no ip domain-lookup
+ip domain-name corp.nmori.com
+!
+username admin secret 5 <REDACTED>
+!
+vtp mode transparent
+!
+!
+ip dhcp snooping vlan 50
+no ip dhcp snooping information option
+ip dhcp snooping
+!
+spanning-tree mode rapid-pvst
+spanning-tree extend system-id
+!
+vlan 10
+ name IT
+!
+vlan 20
+ name HR
+!
+vlan 30
+ name FINANCE
+!
+vlan 50
+ name SERVERS
+!
+vlan 70
+ name GUEST_WIFI
+!
+vlan 99
+ name MANAGEMENT
+!
+vlan 999
+ name NATIVE
+!
+interface FastEthernet0/1
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/2
+ description HQ-DHCP-SRV-01
+ switchport access vlan 50
+ ip dhcp snooping trust
+ switchport mode access
+!
+interface FastEthernet0/3
+ description HQ-DNS-SRV-01
+ switchport access vlan 50
+ switchport mode access
+!
+interface FastEthernet0/4
+ description HQ-WEB-SRV-01
+ switchport access vlan 50
+ switchport mode access
+!
+interface FastEthernet0/5
+ description HQ-LOG-SRV-01
+ switchport access vlan 50
+ switchport mode access
+!
+interface FastEthernet0/6
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/7
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/8
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/9
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/10
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/11
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/12
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/13
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/14
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/15
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/16
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/17
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/18
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/19
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/20
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/21
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/22
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/23
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface FastEthernet0/24
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface GigabitEthernet0/1
+ description UPLINK-TO-HQ-CORE-01-G1/0/3
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30,50,70,99,999
+ ip dhcp snooping trust
+ switchport mode trunk
+ switchport nonegotiate
+!
+interface GigabitEthernet0/2
+ description UPLINK-TO-HQ-CORE-02-G1/0/3
+ switchport trunk native vlan 999
+ switchport trunk allowed vlan 10,20,30,50,70,99,999
+ ip dhcp snooping trust
+ switchport mode trunk
+ switchport nonegotiate
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+interface Vlan99
+ description MANAGEMENT
+ ip address 10.1.99.12 255.255.255.0
+!
+ip default-gateway 10.1.99.1
+!
+logging 10.1.50.13
+!
+!
+snmp-server community <REDACTED> RO
+!
+access-list 99 remark MGMT-VLAN-ONLY
+access-list 99 permit 10.1.99.0 0.0.0.255
+line con 0
+ logging synchronous
+ login local
+!
+line vty 0 4
+ access-class 99 in
+ logging synchronous
+ login local
+ transport input ssh
+line vty 5 15
+ access-class 99 in
+ logging synchronous
+ login local
+ transport input ssh
+!
+!
+!
+ntp server 10.1.50.13
+!
+end
+

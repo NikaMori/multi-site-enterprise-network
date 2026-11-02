@@ -1,0 +1,136 @@
+!
+version 15.1
+service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname HQ-EDGE-01
+!
+!
+!
+enable secret 5 <REDACTED>
+!
+!
+!
+!
+!
+!
+ip cef
+no ipv6 cef
+!
+!
+!
+username admin privilege 15 secret 5 <REDACTED>
+!
+!
+license udi pid CISCO2911/K9 sn FTX1524DZS6-
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+no ip domain-lookup
+ip domain-name corp.nmori.com
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet0/0
+ description TO-ISP-A-G0/0
+ ip address 203.0.113.2 255.255.255.252
+ ip nat outside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/1
+ description TO-HQ-FW-01-G1/1
+ ip address 172.16.1.1 255.255.255.252
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/2
+ description WAN1-VIA-CARRIER-A-TO-BR1-RTR-01
+ ip address 172.16.0.1 255.255.255.252
+ ip ospf network point-to-point
+ ip ospf cost 10
+ ip ospf priority 1
+ ip nat inside
+ duplex auto
+ speed auto
+!
+interface Serial0/0/0
+ description CROSS-LINK-TO-HQ-EDGE-02
+ ip address 172.16.0.9 255.255.255.252
+ ip nat inside
+ clock rate 128000
+!
+interface Serial0/0/1
+ no ip address
+ clock rate 2000000
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router ospf 1
+ router-id 1.1.1.1
+ log-adjacency-changes
+ redistribute static subnets 
+ network 172.16.0.0 0.0.0.3 area 0
+ network 172.16.0.8 0.0.0.3 area 0
+ default-information originate
+!
+ip nat inside source list 1 interface GigabitEthernet0/0 overload
+ip classless
+ip route 10.1.0.0 255.255.0.0 172.16.1.2 
+ip route 0.0.0.0 0.0.0.0 203.0.113.1 
+!
+ip flow-export version 9
+!
+!
+access-list 1 remark NAT-INSIDE-NETWORKS
+access-list 1 permit 10.0.0.0 0.255.255.255
+access-list 99 remark MGMT-VLAN-ONLY
+access-list 99 permit 10.1.99.0 0.0.0.255
+!
+!
+!
+!
+snmp-server community <REDACTED> RO
+!
+logging 10.1.50.13
+line con 0
+ logging synchronous
+ login local
+!
+line aux 0
+!
+line vty 0 4
+ access-class 99 in
+ logging synchronous
+ login local
+ transport input ssh
+line vty 5 15
+ access-class 99 in
+ logging synchronous
+ login local
+ transport input ssh
+!
+!
+ntp server 10.1.50.13
+!
+end
+

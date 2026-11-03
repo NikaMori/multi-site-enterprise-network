@@ -2,7 +2,14 @@
 
 A two-site enterprise network built in Cisco Packet Tracer. Headquarters runs a redundant Layer 3 core, a firewall, two edge routers and two ISP connections. A Sales branch connects back to HQ over two separate WAN carriers. Every feature was verified with show commands and end-to-end tests, and both redundancy paths were tested by failing devices and links on purpose.
 
-The project also includes a troubleshooting log of real issues found and fixed during the build, written the way a support or NOC ticket would be.
+The project also includes a troubleshooting log of 16 real issues found and fixed during the build, written the way a support or NOC ticket would be.
+
+| Start here | |
+|---|---|
+| [Troubleshooting log](docs/troubleshooting-log.md) | 16 tickets, from an HSRP split-brain to an asymmetric return path found during failover testing |
+| [Design decisions](docs/design-decisions.md) | Why the network is built this way, and the hostname convention |
+| [Lab vs Production](#lab-vs-production) | What would change on real hardware |
+| [Packet Tracer file](multi-site-enterprise-network-lab.pkt) | Open the lab in Cisco Packet Tracer 9.0 or later |
 
 ![Full topology](screenshots/01-topology-full-zones.png)
 *Full topology: internet edge and dual ISPs (top), HQ campus (left), Sales branch over two carriers (right).*
@@ -19,7 +26,7 @@ The project also includes a troubleshooting log of real issues found and fixed d
 | Firewall | Cisco ASA between the core and both edge routers, with redundant inside and outside interfaces and an inbound ACL |
 | Security | Per-department inbound ACLs, guest isolation, port security, DHCP snooping, Dynamic ARP Inspection, BPDU guard, SSH-only management restricted to the management VLAN, unused ports shut down |
 | Services | Centralized DHCP for both sites (via relay), DNS, centralized syslog and NTP |
-| Troubleshooting | 3 documented tickets, including an HSRP split-brain caused by config drift |
+| Troubleshooting | 16 documented tickets, including an HSRP split-brain caused by config drift, EtherChannel instability, NAT sessions split across two exits, and a firewall return-path gap exposed by failover testing |
 
 ## Sites and Devices
 
@@ -34,6 +41,8 @@ The project also includes a troubleshooting log of real issues found and fixed d
 | WAN | Carriers | CARRIER-A (primary), CARRIER-B (backup) |
 | Branch | Routing | BR1-RTR-01 |
 | Branch | Access | BR1-ASW-01, BR1-PH-01/02, BR1-SALES-PC01 to PC03 |
+
+Hostnames follow `SITE-LOCATION-ROLE-NUMBER` (for example `HQ-F2-ASW-01` is the HQ floor 2 access switch). The full convention is in [design decisions](docs/design-decisions.md#naming).
 
 ![HQ site](screenshots/01-topology-hq.png)
 ![Branch site](screenshots/01-topology-branch.png)
@@ -291,13 +300,39 @@ Full write-ups with evidence are in [docs/troubleshooting-log.md](docs/troublesh
 | TKT-002 | HR PC cannot reach 10.1.20.24 | Test target did not exist | Closed, test corrected |
 | TKT-003 | Guest internet reported down | Not reproducible, layered testing showed full connectivity | Closed, no fault found |
 
+The log also covers 13 issues hit during the build (TKT-004 to TKT-016). The three most instructive:
+
+| Ticket | Issue | Root cause | Outcome |
+|---|---|---|---|
+| TKT-010 | EtherChannel flapping, HSRP active on both cores | LACP instability, a mode mismatch during the change, and a VLAN missing from a trunk | Fixed, Po1 rebuilt |
+| TKT-014 | Branch web pages failed while pings worked | Equal-cost default routes split TCP sessions across two edges with different NAT addresses | Fixed |
+| TKT-016 | Branch-to-HQ traffic did not fail over | The ASA kept sending replies to the edge that had lost its WAN link | Fixed with an edge cross-link |
+
+## Lab vs Production
+
+Some choices were made to work around Packet Tracer. Each one is listed with what a production network would use instead.
+
+| Area | In this lab | In production |
+|---|---|---|
+| Core EtherChannel | Static (`mode on`) after LACP was unstable in the simulator | LACP (`mode active`), which detects misconfigured or miswired members |
+| ISP failover | Triggers when the link to ISP-A goes down (IP SLA is not supported) | Default route tracked by an IP SLA probe, so an upstream ISP failure also triggers failover |
+| Branch exit selection | `distance 111` for routes from HQ-EDGE-02 (`metric`, `metric-type 1` and `maximum-paths` were rejected) | OSPF E1 metrics so the WAN costs choose the path |
+| Firewall routing | Static routes on the ASA, plus an edge cross-link to keep return traffic symmetric | Dynamic routing (OSPF or BGP) between the firewall and the edges |
+| Firewall inspection | Explicit OUTSIDE_IN entries for ICMP replies, because the simulated ASA did not track them | Stateful inspection handles return traffic, logs go to a SIEM |
+| Firewall redundancy | Single ASA with redundant interfaces | Active/standby firewall pair |
+| Wireless | Separate small lab, WPA2-Personal | Integrated with the campus, WPA2/WPA3-Enterprise with RADIUS |
+| Uplinks | Copper between floors | Fiber between floors |
+| SNMP | v2c read-only | v3 with authentication and encryption |
+
 ## Repository Layout
 
 ```
 README.md
-docs/troubleshooting-log.md
-screenshots/      all images referenced above
-configs/          running-config of every network device, passwords redacted
+multi-site-enterprise-network-lab.pkt   the lab, opens in Packet Tracer 9.0 or later
+docs/troubleshooting-log.md             16 tickets in support-ticket format
+docs/design-decisions.md                design reasoning and hostname convention
+screenshots/                            all images referenced above
+configs/                                running-config of every network device, passwords redacted
 ```
 
 ## Future Improvements
@@ -305,8 +340,10 @@ configs/          running-config of every network device, passwords redacted
 | Item | Reason |
 |---|---|
 | Move unused ports to a dedicated black-hole VLAN | Unused ports currently share VLAN 999 with the native VLAN (they are shut down, which limits the risk) |
-| LACP on Port-channel 1 | Currently static (mode on). LACP detects misconfigured bundles. |
+| LACP on Port-channel 1 | Currently static (mode on) because LACP was unstable in Packet Tracer (TKT-010). LACP detects misconfigured bundles. |
 | Prune the server switch uplink | Gi1/0/3 on both cores allows more VLANs than the server switch needs |
 | SNMPv3 | Replace the v2c community string with authenticated, encrypted SNMPv3 |
 | Port security on the server switch | Server ports currently rely on DHCP snooping only |
 | Config comparison on redundant pairs | Would have caught TKT-001 before it caused an outage |
+| Publish the wireless lab | WLC, lightweight APs, and corporate and guest SSIDs, built as a separate file because the full topology became unstable with wireless devices added (TKT-011) |
+| Cover the HQ-EDGE-01 to ASA link | The edge cross-link (TKT-016) does not cover a failure of only that link |
